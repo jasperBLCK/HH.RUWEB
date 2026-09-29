@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row">
+    <input id="query" placeholder="python junior fastapi, вайб-кодинг, AI разработчик" style="flex:1">
+    <input id="pages" type="number" value="1" min="1" max="5" style="width:80px">
+    <button onclick="search()">Найти</button>
+    <button class="ghost" onclick="scoreAll()">Оценить все</button>
+  </div>
+  <p class="muted">
+    Фильтры удалёнки и зарплаты берутся из профиля.
+    {% if not llm_enabled %}LLM-ключ не задан — работает keyword-скоринг и шаблонное письмо.{% endif %}
+  </p>
+  <p class="muted" id="log"></p>
+</div>
+
+<div class="tabs card">
+  {% for s, title in [("new","Новые"),("applied","Отклики"),("skipped","Пропущенные"),("failed","Ошибки"),("all","Все")] %}
+    <a href="/?status={{ s }}" class="{{ 'active' if status == s }}">{{ title }}</a>
+  {% endfor %}
+</div>
+
+{% for v in vacancies %}
+<div class="card" id="v{{ v.id }}">
+  <div class="row">
+    <span class="score {{ 'high' if v.score >= 70 }}">{{ v.score }}</span>
+    <a href="{{ v.url }}" target="_blank" style="color:var(--text); font-weight:600; font-size:17px">{{ v.name }}</a>
+    <span class="muted">{{ v.employer }}</span>
+    <span class="badge">{{ v.schedule }}</span>
+    <span class="badge">{{ v.experience }}</span>
+    {% if v.salary %}<span class="badge">{{ v.salary }}</span>{% endif %}
+    <span class="badge">{{ v.status }}</span>
+  </div>
+  {% if v.score_reason %}<p class="muted">{{ v.score_reason }}</p>{% endif %}
+  {% if v.status_detail and v.status == "failed" %}<p class="muted">Ошибка: {{ v.status_detail }}</p>{% endif %}
+  <details>
+    <summary class="muted">Описание</summary>
+    <p style="white-space:pre-wrap">{{ v.description[:3000] }}</p>
+  </details>
+  <label>Сопроводительное письмо</label>
+  <textarea id="letter{{ v.id }}" rows="10">{{ v.letter }}</textarea>
+  <div class="row" style="margin-top:10px">
+    <button class="ghost" onclick="score({{ v.id }})">Оценить</button>
+    <button class="ghost" onclick="letter({{ v.id }})">Сгенерировать письмо</button>
+    <button class="ghost" onclick="saveLetter({{ v.id }})">Сохранить письмо</button>
+    <button onclick="apply({{ v.id }})">Откликнуться</button>
+    <button class="ghost" onclick="skip({{ v.id }})">Пропустить</button>
+  </div>
+</div>
+{% else %}
+<div class="card muted">Пусто. Запусти поиск.</div>
+{% endfor %}
+
+<script>
+const log = m => document.getElementById('log').textContent = m;
+
+async function post(url, body) {
+  const res = await fetch(url, { method: 'POST', body });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.detail || res.statusText);
+  return data;
+}
+
+async function search() {
+  const fd = new FormData();
+  fd.append('query', document.getElementById('query').value);
+  fd.append('pages', document.getElementById('pages').value);
+  log('Ищу…');
+  try {
+    const d = await post('/api/search', fd);
+    log(`Добавлено ${d.added}, обновлено ${d.updated}`);
+    location.reload();
+  } catch (e) { log('Ошибка: ' + e.message); }
+}
+
+async function score(id) {
+  log('Оцениваю…');
+  try { const d = await post(`/api/score/${id}`); log(`Оценка ${d.score}: ${d.reason}`); location.reload(); }
+  catch (e) { log('Ошибка: ' + e.message); }
+}
+
+async function scoreAll() {
+  const ids = [...document.querySelectorAll('[id^=v]')].map(el => el.id.slice(1));
+  for (const id of ids) { log(`Оцениваю ${id}…`); await post(`/api/score/${id}`).catch(() => {}); }
+  location.reload();
+}
+
+async function letter(id) {
+  log('Пишу письмо…');
+  try { const d = await post(`/api/letter/${id}`); document.getElementById('letter' + id).value = d.letter; log('Письмо готово'); }
+  catch (e) { log('Ошибка: ' + e.message); }
+}
+
+async function saveLetter(id) {
+  const fd = new FormData();
+  fd.append('letter', document.getElementById('letter' + id).value);
+  await post(`/api/letter/${id}/save`, fd);
+  log('Сохранено');
+}
+
+async function apply(id) {
+  await saveLetter(id);
+  log('Отправляю отклик…');
+  try { await post(`/api/apply/${id}`); log('Отклик отправлен'); location.reload(); }
+  catch (e) { log('Ошибка отклика: ' + e.message); }
+}
+
+async function skip(id) { await post(`/api/skip/${id}`); location.reload(); }
+</script>
+{% endblock %}
