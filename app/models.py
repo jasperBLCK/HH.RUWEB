@@ -25,6 +25,17 @@ class Profile(SQLModel, table=True):
     remote_only: bool = True
     links: str = ""
 
+    # Что искать: свободное описание для ИИ и готовые запросы для hh (по одному на строку)
+    search_instruction: str = ""
+    search_queries: str = ""
+    exclude_words: str = ""
+
+    # Автопилот
+    auto_enabled: bool = False
+    auto_min_score: int = 70
+    auto_max_per_day: int = 10
+    auto_interval_minutes: int = 60
+
 
 class Vacancy(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -46,3 +57,12 @@ class Vacancy(SQLModel, table=True):
     status_detail: str = ""
     found_at: datetime = Field(default_factory=datetime.utcnow)
     applied_at: Optional[datetime] = None
+    auto: bool = False
+
+
+class LogEntry(SQLModel, table=True):
+    """Журнал автопилота для отображения в панели."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    message: str = ""

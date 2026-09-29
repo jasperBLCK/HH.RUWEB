@@ -11,6 +11,28 @@
     <span>{% if profile.skills and profile.resume_id %}готов{% else %}<a href="/profile">заполнить навыки и resume_id</a>{% endif %}</span></div>
   <div class="step"><b><span class="dot {{ 'on' if llm_enabled }}"></span>3. ИИ</b>
     <span>{% if llm_enabled %}письма пишет модель{% else %}без ключа: подбор по навыкам{% endif %}</span></div>
+  <div class="step"><b><span class="dot {{ 'on' if profile.auto_enabled }}"></span>4. Автопилот</b>
+    <span>{% if profile.auto_enabled %}вкл, каждые {{ profile.auto_interval_minutes }} мин{% else %}выключен{% endif %}</span></div>
+</div>
+
+<div class="card">
+  <h2>Автопилот</h2>
+  <p class="hint">Сам ищет по твоим запросам, оценивает, пишет письмо под компанию и отправляет отклик,
+    если оценка ≥ {{ profile.auto_min_score }}. Лимит {{ profile.auto_max_per_day }} в сутки, сегодня отправлено {{ applied_today }}.</p>
+  <div class="row" style="margin-top:12px">
+    <button class="{{ 'ghost' if profile.auto_enabled }}" onclick="toggleAuto()">
+      {{ 'Выключить автопилот' if profile.auto_enabled else 'Включить автопилот' }}</button>
+    <button class="ghost" onclick="runAuto()">Прогнать сейчас</button>
+    <a href="/profile" class="muted" style="margin-left:auto">Настроить: что искать, порог, лимиты →</a>
+  </div>
+  {% if logs %}
+  <details style="margin-top:14px">
+    <summary class="muted" style="cursor:pointer">Журнал автопилота</summary>
+    {% for entry in logs %}
+      <p class="hint">{{ entry.created_at.strftime('%d.%m %H:%M') }} — {{ entry.message }}</p>
+    {% endfor %}
+  </details>
+  {% endif %}
 </div>
 
 <div class="card">
@@ -124,5 +146,16 @@ async function apply(id) {
 }
 
 async function skip(id) { await post(`/api/skip/${id}`); location.reload(); }
+
+async function toggleAuto() { await post('/api/auto/toggle'); location.reload(); }
+
+async function runAuto() {
+  log('Автопилот работает: ищет, оценивает и отправляет отклики…');
+  try {
+    const d = await post('/api/auto/run');
+    log(`Готово: найдено ${d.found || 0}, оценено ${d.scored || 0}, откликов ${d.applied || 0}`);
+    location.reload();
+  } catch (e) { log('Ошибка автопилота: ' + e.message); }
+}
 </script>
 {% endblock %}
