@@ -45,12 +45,17 @@ def dashboard(request: Request, status: str = "new") -> HTMLResponse:
         if status != "all":
             query = query.where(Vacancy.status == status)
         vacancies = session.exec(query).all()
+        all_vacancies = session.exec(select(Vacancy)).all()
+    counts = {"all": len(all_vacancies)}
+    for key in ("new", "applied", "skipped", "failed"):
+        counts[key] = sum(1 for v in all_vacancies if v.status == key)
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
             "vacancies": vacancies,
             "status": status,
+            "counts": counts,
             "profile": load_profile(),
             "authorized": hh.current_token() is not None,
             "llm_enabled": llm.enabled(),

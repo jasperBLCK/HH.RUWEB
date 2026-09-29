@@ -1,39 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h3>Подключение hh.ru</h3>
+<h1>Профиль</h1>
+<p class="hint">Здесь панель берёт всё, что нужно для подбора вакансий и писем.</p>
+
+<div class="card" style="margin-top:20px">
+  <h2>1. Доступ к hh.ru</h2>
+  <p class="hint">Нужен, чтобы искать вакансии и отправлять отклики от твоего имени.</p>
   {% if authorize_url %}
-    <p><a href="{{ authorize_url }}" style="color:var(--accent)">Авторизоваться через hh OAuth</a></p>
+    <p style="margin-top:12px"><a href="{{ authorize_url }}">Войти через hh OAuth →</a></p>
   {% else %}
-    <p class="muted">HH_CLIENT_ID не задан — укажи его в .env или вставь access_token вручную.</p>
+    <p class="hint">OAuth не настроен (нет HH_CLIENT_ID в .env). Пока можно вставить access_token вручную.</p>
   {% endif %}
-  <form method="post" action="/auth/token" class="row">
-    <input name="access_token" placeholder="access_token" style="flex:1" required>
+  <form method="post" action="/auth/token" class="row" style="margin-top:12px">
+    <input name="access_token" placeholder="access_token с dev.hh.ru" style="flex:1" required>
     <button>Сохранить токен</button>
   </form>
-  <p class="muted" style="margin-top:10px">Список резюме: <a href="/api/resumes" target="_blank" style="color:var(--muted)">/api/resumes</a></p>
+  <p class="hint" style="margin-top:12px">
+    Статус: {% if authorized %}токен сохранён{% else %}токена нет{% endif %} ·
+    <a href="/api/resumes" target="_blank">посмотреть свои резюме и их id</a>
+  </p>
 </div>
 
 <form class="card" method="post" action="/profile">
-  <h3>Профиль кандидата</h3>
-  <label>Имя</label>
-  <input name="full_name" value="{{ profile.full_name }}">
-  <label>resume_id (из /api/resumes)</label>
-  <input name="resume_id" value="{{ profile.resume_id }}">
-  <label>Резюме / опыт (текстом — идёт в промпт)</label>
-  <textarea name="resume_text" rows="10">{{ profile.resume_text }}</textarea>
-  <label>Навыки через запятую</label>
-  <textarea name="skills" rows="3">{{ profile.skills }}</textarea>
-  <label>Пожелания к работе</label>
-  <textarea name="wishes" rows="4">{{ profile.wishes }}</textarea>
-  <label>Минимальная зарплата</label>
+  <h2>2. Кто ты и что ищешь</h2>
+  <p class="hint">Эти данные идут в оценку вакансий и в сопроводительные письма.</p>
+
+  <label>Имя — им подписывается письмо</label>
+  <input name="full_name" value="{{ profile.full_name }}" placeholder="Каримов Ансар">
+
+  <label>resume_id — с какого резюме отправлять отклик (см. /api/resumes)</label>
+  <input name="resume_id" value="{{ profile.resume_id }}" placeholder="cbdee99aff...">
+
+  <label>Опыт и проекты — пара абзацев, попадут в письмо</label>
+  <textarea name="resume_text" rows="8" placeholder="Стажировка 3 месяца: backend на FastAPI… Хакатоны: …">{{ profile.resume_text }}</textarea>
+
+  <label>Навыки через запятую — по ним считается совпадение с вакансией</label>
+  <textarea name="skills" rows="3" placeholder="Python, FastAPI, PostgreSQL, Docker, Git">{{ profile.skills }}</textarea>
+
+  <label>Пожелания к работе — формат, график, чего хочешь</label>
+  <textarea name="wishes" rows="3" placeholder="удалёнка по РФ, гибкий график, совмещение с учёбой">{{ profile.wishes }}</textarea>
+
+  <label>Минимальная зарплата, ₽ — фильтр поиска</label>
   <input name="salary_min" type="number" value="{{ profile.salary_min }}">
-  <label class="row" style="gap:8px; align-items:center">
+
+  <label class="row" style="gap:8px; align-items:center; margin-top:16px">
     <input name="remote_only" type="checkbox" value="true" {% if profile.remote_only %}checked{% endif %} style="width:auto">
-    Только удалённые вакансии
+    Искать только удалённые вакансии
   </label>
-  <label>Контакты и ссылки (подставляются в письмо)</label>
-  <textarea name="links" rows="3">{{ profile.links }}</textarea>
-  <div style="margin-top:14px"><button>Сохранить</button></div>
+
+  <label>Контакты и ссылки — подставляются в конец письма</label>
+  <textarea name="links" rows="2" placeholder="github.com/… · телеграм · портфолио">{{ profile.links }}</textarea>
+
+  <div style="margin-top:20px"><button>Сохранить профиль</button></div>
 </form>
 {% endblock %}
