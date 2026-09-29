@@ -86,9 +86,22 @@ def _conditions(vacancy: Vacancy) -> str:
     return ", ".join(p for p in parts if p)
 
 
+def _skills(profile: Profile) -> list[str]:
+    return [s.strip() for s in re.split(r"[,\n]", profile.skills) if s.strip()]
+
+
+def _match_skills(profile: Profile, vacancy: Vacancy) -> tuple[list[str], list[str]]:
+    """Навыки кандидата, которые встречаются в тексте вакансии, и остальные."""
+    haystack = f"{vacancy.name} {vacancy.description} {vacancy.key_skills}".lower()
+    matched, rest = [], []
+    for skill in _skills(profile):
+        (matched if skill.lower() in haystack else rest).append(skill)
+    return matched, rest
+
+
 def keyword_score(profile: Profile, vacancy: Vacancy) -> tuple[int, str]:
     """Оценка без LLM: пересечение навыков кандидата с текстом вакансии."""
-    skills = [s.strip().lower() for s in re.split(r"[,\n]", profile.skills) if s.strip()]
+    skills = [s.lower() for s in _skills(profile)]
     haystack = f"{vacancy.name} {vacancy.description} {vacancy.key_skills}".lower()
     hits = [s for s in skills if s in haystack]
     score = min(100, int(len(hits) / max(len(skills), 1) * 100) + (10 if "junior" in haystack else 0))
@@ -124,17 +137,55 @@ def _parse_json(raw: str) -> Optional[dict[str, Any]]:
         return None
 
 
+def _vacancy_tasks(vacancy: Vacancy, limit: int = 3) -> list[str]:
+    """Короткие содержательные фразы из описания вакансии для привязки письма."""
+    lines = [line.strip(" -•—\t") for line in vacancy.description.splitlines()]
+    picked = []
+    for line in lines:
+        if 25 <= len(line) <= 160 and not line.endswith(":"):
+            picked.append(line.rstrip(".;"))
+        if len(picked) == limit:
+            break
+    return picked
+
+
 def fallback_letter(profile: Profile, vacancy: Vacancy) -> str:
-    return (
-        f"Здравствуйте! Меня зовут {profile.full_name or 'кандидат'}, "
-        f"откликаюсь на вакансию «{vacancy.name}»"
+    """Письмо без LLM: привязка к стеку и задачам вакансии."""
+    matched, rest = _match_skills(profile, vacancy)
+    company = vacancy.employer or "вашей команде"
+    tasks = _vacancy_tasks(vacancy)
+
+    blocks = [
+        f"Здравствуйте! Меня зовут {profile.full_name or 'кандидат'}. "
+        f"Откликаюсь на вакансию «{vacancy.name}»"
         + (f" в компании {vacancy.employer}." if vacancy.employer else ".")
-        + "\n\n"
-        + (profile.resume_text.strip() or "Расскажу об опыте подробнее в переписке.")
-        + "\n\n"
-        + (f"Ключевые навыки: {profile.skills}.\n" if profile.skills else "")
-        + (f"{profile.links}" if profile.links else "")
-    ).strip()
+    ]
+
+    if matched:
+        blocks.append(
+            f"В описании вижу знакомый стек: {', '.join(matched[:8])} — с этим работаю "
+            f"в своих проектах и на практике, поэтому смогу включиться без долгой раскачки."
+        )
+    if tasks:
+        blocks.append(
+            "Из задач особенно откликается: "
+            + "; ".join(t.lower() for t in tasks)
+            + ". Готов брать такие задачи на себя и доводить до результата."
+        )
+    if profile.resume_text.strip():
+        blocks.append(profile.resume_text.strip())
+    if rest:
+        blocks.append(
+            f"Дополнительно использую: {', '.join(rest[:8])}. "
+            "То, чего пока не знаю, быстро осваиваю — привык разбираться в чужом коде и документации."
+        )
+    if profile.wishes.strip():
+        blocks.append(f"По формату: {profile.wishes.strip()}")
+    blocks.append(
+        f"Буду рад обсудить задачи {company} и показать, как работаю. "
+        + (f"Мои контакты и проекты: {profile.links}" if profile.links else "")
+    )
+    return "\n\n".join(b.strip() for b in blocks if b.strip())
 
 
 def generate_letter(profile: Profile, vacancy: Vacancy) -> str:
