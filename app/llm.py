@@ -10,6 +10,7 @@ from app.models import Profile, Vacancy
 SCORE_PROMPT = """Ты помогаешь соискателю отбирать вакансии на hh.ru.
 Оцени, насколько вакансия подходит кандидату, числом от 0 до 100, и дай одно короткое предложение с обоснованием.
 Учитывай пожелания кандидата, его навыки и реальный опыт: не завышай оценку там, где требуется опыт сильно выше.
+Если вакансия противоречит тому, что кандидат ищет, ставь оценку ниже 40.
 
 Профиль кандидата:
 {profile}
@@ -81,6 +82,11 @@ def _profile_text(profile: Profile) -> str:
     )
 
 
+def _wishes(profile: Profile) -> str:
+    parts = [profile.wishes.strip(), profile.search_instruction.strip()]
+    return "\n".join(p for p in parts if p)
+
+
 def _conditions(vacancy: Vacancy) -> str:
     parts = [vacancy.schedule, vacancy.employment, vacancy.experience, vacancy.area, vacancy.salary]
     return ", ".join(p for p in parts if p)
@@ -114,7 +120,7 @@ def score_vacancy(profile: Profile, vacancy: Vacancy) -> tuple[int, str]:
         return keyword_score(profile, vacancy)
     prompt = SCORE_PROMPT.format(
         profile=_profile_text(profile),
-        wishes=profile.wishes,
+        wishes=_wishes(profile),
         name=vacancy.name,
         employer=vacancy.employer,
         conditions=_conditions(vacancy),
@@ -193,7 +199,7 @@ def generate_letter(profile: Profile, vacancy: Vacancy) -> str:
         return fallback_letter(profile, vacancy)
     prompt = LETTER_PROMPT.format(
         profile=_profile_text(profile),
-        wishes=profile.wishes,
+        wishes=_wishes(profile),
         name=vacancy.name,
         employer=vacancy.employer,
         conditions=_conditions(vacancy),

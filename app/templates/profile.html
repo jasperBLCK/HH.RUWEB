@@ -51,6 +51,39 @@
   <label>Контакты и ссылки — подставляются в конец письма</label>
   <textarea name="links" rows="2" placeholder="github.com/… · телеграм · портфолио">{{ profile.links }}</textarea>
 
+  <hr>
+  <h2>3. Что искать — объясни ИИ словами</h2>
+  <p class="hint">Это описание идёт в оценку каждой вакансии: ИИ поймёт, что тебе подходит, а что нет.</p>
+
+  <label>Какую работу ищешь</label>
+  <textarea name="search_instruction" rows="5"
+    placeholder="Ищу junior/middle backend на Python или роль, где пишут код с ИИ. Важно: удалёнка по РФ, гибкий график или part-time — учусь очно. Готов на legacy, фиксы, сложные задачи. Не подходят: 1С, поддержка без кода, офис, ночные смены.">{{ profile.search_instruction }}</textarea>
+
+  <label>Поисковые запросы для hh — по одному на строку</label>
+  <textarea name="search_queries" rows="4"
+    placeholder="python junior&#10;fastapi backend&#10;AI разработчик&#10;vibe coding">{{ profile.search_queries }}</textarea>
+
+  <label>Стоп-слова через запятую — такие вакансии отбрасываются сразу</label>
+  <textarea name="exclude_words" rows="2" placeholder="1С, битрикс, продажи, офис">{{ profile.exclude_words }}</textarea>
+
+  <hr>
+  <h2>4. Автопилот</h2>
+  <p class="hint">Сам ищет, оценивает, пишет письмо под каждую компанию и отправляет отклик. Между откликами пауза, чтобы hh не счёл это рассылкой.</p>
+
+  <label class="row" style="gap:8px; align-items:center; margin-top:16px">
+    <input name="auto_enabled" type="checkbox" value="true" {% if profile.auto_enabled %}checked{% endif %} style="width:auto">
+    Включить автопилот
+  </label>
+
+  <label>Порог оценки для автоотклика (0-100)</label>
+  <input name="auto_min_score" type="number" min="0" max="100" value="{{ profile.auto_min_score }}">
+
+  <label>Максимум автооткликов в сутки</label>
+  <input name="auto_max_per_day" type="number" min="1" max="50" value="{{ profile.auto_max_per_day }}">
+
+  <label>Как часто запускать цикл, минут</label>
+  <input name="auto_interval_minutes" type="number" min="5" max="1440" value="{{ profile.auto_interval_minutes }}">
+
   <div style="margin-top:20px"><button>Сохранить профиль</button></div>
 </form>
 {% endblock %}
